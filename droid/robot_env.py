@@ -35,7 +35,10 @@ class RobotEnv(gym.Env):
 
             self._robot = FrankaRobot()
         else:
-            self._robot = ServerInterface(ip_address=nuc_ip)
+            # launch_controller on the NUC is patched to no-op (polymetis is
+            # started externally) and launch_robot is patched to time-bound the
+            # gripper init, so launch=True is safe.
+            self._robot = ServerInterface(ip_address=nuc_ip, launch=False)
 
         # Create Cameras
         self.camera_reader = MultiCameraWrapper(camera_kwargs)
@@ -63,7 +66,9 @@ class RobotEnv(gym.Env):
         return action_info
 
     def reset(self, randomize=False):
-        self._robot.update_gripper(0, velocity=False, blocking=True)
+        # PATCH: skip update_gripper — /dev/ttyUSB0 is held by bamboo shim,
+        # polymetis times out. pi0.5 commands the gripper during rollout anyway.
+        # self._robot.update_gripper(0, velocity=False, blocking=True)
 
         if randomize:
             noise = np.random.uniform(low=self.randomize_low, high=self.randomize_high)

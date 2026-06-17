@@ -30,12 +30,13 @@ class FrankaRobot:
             "echo " + sudo_password + " | sudo -S " + "bash " + dir_path + "/launch_gripper.sh"
         )
         self._server_launched = True
-        time.sleep(5)
+        time.sleep(15)
 
     def launch_robot(self):
         self._robot = RobotInterface(ip_address="localhost")
         self._gripper = GripperInterface(ip_address="localhost")
-        self._max_gripper_width = self._gripper.metadata.max_width
+        metadata = getattr(self._gripper, "metadata", None)
+        self._max_gripper_width = metadata.max_width if metadata is not None else 0.08
         self._ik_solver = RobotIKSolver()
         self._controller_not_loaded = False
 

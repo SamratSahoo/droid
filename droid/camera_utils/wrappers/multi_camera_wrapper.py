@@ -8,6 +8,10 @@ from droid.camera_utils.info import get_camera_type
 
 class MultiCameraWrapper:
     def __init__(self, camera_kwargs={}):
+        if camera_kwargs.get("skip_cameras", False):
+            self.camera_dict = {}
+            return
+
         # Open Cameras #
         zed_cameras = gather_zed_cameras()
         self.camera_dict = {cam.serial_number: cam for cam in zed_cameras}

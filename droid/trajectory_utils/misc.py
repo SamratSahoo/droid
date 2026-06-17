@@ -16,6 +16,37 @@ from droid.trajectory_utils.trajectory_reader import TrajectoryReader
 from droid.trajectory_utils.trajectory_writer import TrajectoryWriter
 
 
+def _extract_left_images_with_timestamps(obs):
+    """Extract left camera frames and per-camera timestamps for HDF5 writing."""
+    image_dict = obs.get("image", {})
+    camera_timestamps = obs.get("timestamp", {}).get("cameras", {})
+    left_images = {}
+    left_timestamps = {}
+
+    for full_cam_id, img in image_dict.items():
+        if not full_cam_id.endswith("_left"):
+            continue
+
+        left_images[full_cam_id] = img
+        serial = full_cam_id[: -len("_left")]
+
+        # Prefer true capture estimates when available; otherwise fall back.
+        timestamp_candidates = (
+            f"{serial}_estimated_capture",
+            f"{serial}_frame_received",
+            f"{serial}_read_end",
+            "read_end",
+        )
+        for ts_key in timestamp_candidates:
+            if ts_key in camera_timestamps:
+                left_timestamps[full_cam_id] = camera_timestamps[ts_key]
+                break
+        if full_cam_id not in left_timestamps:
+            left_timestamps[full_cam_id] = camera_timestamps.get("read_end", -1)
+
+    return left_images, left_timestamps
+
+
 def collect_trajectory(
     env,
     controller=None,
@@ -110,6 +141,10 @@ def collect_trajectory(
         # Save Data #
         control_timestamps["step_end"] = time_ms()
         obs["timestamp"]["control"] = control_timestamps
+        if save_filepath:
+            left_images, left_timestamps = _extract_left_images_with_timestamps(obs)
+            obs["left_images"] = left_images
+            obs["left_image_timestamps"] = left_timestamps
         timestep = {"observation": obs, "action": action_info}
         if save_filepath:
             traj_writer.write_timestep(timestep)
