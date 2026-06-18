@@ -309,6 +309,17 @@ def main(args: Args):
 
 
 def _extract_observation(args: Args, obs_dict, *, save_to_disk=False, save_dir="."):
+    # No "image" key means read_cameras() returned no frames at all -- i.e. the ZED
+    # cameras weren't opened/read. The usual cause is the cameras being held by another
+    # process (ZED cameras are exclusive-access, and a running `tiptop-run --enable-recording`
+    # opens these same three), or being unplugged. Fail with that context instead of a bare
+    # KeyError so the cause is obvious.
+    if "image" not in obs_dict or not obs_dict["image"]:
+        raise RuntimeError(
+            "No camera frames returned by the DROID env (obs_dict has no 'image'). The ZED "
+            "cameras were not read -- check they are connected and not already open in another "
+            "process (e.g. a running tiptop-run, which holds the same cameras exclusively)."
+        )
     image_observations = obs_dict["image"]
     left_image, right_image, wrist_image = None, None, None
     for key in image_observations:
