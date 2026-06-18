@@ -42,6 +42,13 @@ class Args:
     # 8 is usually a good default (equals 0.5 seconds of action execution).
     open_loop_horizon: int = 8
 
+    # Multiplier applied to the 7 joint-velocity action dims before clipping (the gripper dim is
+    # left untouched). 1.0 = unchanged. Values >1 make the robot traverse the same joint path
+    # faster. This pushes the policy off the velocity distribution it was trained on, so overshoot
+    # risk grows with the value AND with open_loop_horizon (more steps execute before re-observing) --
+    # raise it gradually (e.g. 1.25) and consider lowering open_loop_horizon to re-observe sooner.
+    velocity_scale: float = 1
+
     # Remote server parameters
     remote_host: str = "0.0.0.0"  # point this to the IP address of the policy server, e.g., "192.168.1.100"
     remote_port: int = (
@@ -188,6 +195,11 @@ def main(args: Args):
                 # Select current action to execute from chunk
                 action = pred_action_chunk[actions_from_chunk_completed]
                 actions_from_chunk_completed += 1
+
+                # Optionally speed up motion by scaling the joint-velocity dims (not the gripper).
+                # The subsequent clip to [-1, 1] still bounds the result for safety.
+                if args.velocity_scale != 1.0:
+                    action = np.concatenate([action[:-1] * args.velocity_scale, action[-1:]])
 
                 # Binarize gripper action
                 if action[-1].item() > 0.5:
